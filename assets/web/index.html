@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Libre Competencia PRO · Examen final con audio</title>
+<meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="head">
+    <h1>⚖️ Libre Competencia <span class="em">PRO</span></h1>
+    <div class="lead">Prepara el <b>examen final</b> de Derecho Económico escuchando. Los cuatro temas del curso: <b>libre competencia</b> (D.Leg. 1034: mercado relevante, dominio, abuso, cárteles, verticales y Ley 31112), <b>competencia desleal</b> (D.Leg. 1044: bien jurídico, filtros, cláusula general y actos desleales), <b>publicidad comercial</b> (principios, responsables y los casos del INDECOPI) y <b>derecho del consumo</b> (Ley 29571: consumidor, MYPE, proveedor, derechos y reclamos). Con <b>audio en todo</b>, fichas, autoevaluación y un <b>modo carro</b> para repasar camino al trabajo. Funciona sin internet.</div>
+    <div class="chips">
+      <span class="chip">🚗 Modo carro</span>
+      <span class="chip">🔊 Audio en todo</span>
+      <span class="chip">🧪 Quiz por lección</span>
+      <span class="chip">🎯 Simulacro</span>
+      <span class="chip">📡 Sin internet</span>
+      <span class="chip" id="chip-count">📚 lecciones</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="pfill"></div></div>
+      <div class="progress-txt" id="ptxt">Tu progreso</div>
+    </div>
+  </div>
+
+  <a class="carhero" href="carro.html">
+    <span class="big">🚗</span>
+    <span><span class="ct" id="car-t">Modo carro: escuchar el curso</span><br><span class="cd" id="car-d">Pantalla grande, sin tocar nada: lecciones seguidas, puntos clave, preguntas con pausa para pensar y examen oral.</span></span>
+  </a>
+
+  <nav class="toolbar" id="tools" aria-label="Herramientas"></nav>
+
+  <div class="modgrid" id="mods"></div>
+
+  <div class="search"><input id="q" type="search" placeholder="🔎 Buscar tema (abuso, FETRANS, per se, cláusula general, sustanciación, Mr. Músculo, MYPE, reclamos…)"></div>
+
+  <div id="home"></div>
+
+  <div class="foot">
+    🎧 <b>Cómo usarla en el carro:</b> conecta el celular al Bluetooth o al cable auxiliar, abre <b>Modo carro</b>, elige qué escuchar y toca ▶. La voz sigue con la pantalla apagada; si tu celular la corta, activa «Pantalla encendida» y quita el ahorro de batería para esta app.<br>
+    🧭 <b>Orden recomendado:</b> libre competencia → competencia desleal → publicidad y casos → consumo → repaso final y examen integrador. Luego simulacro y repaso relámpago.<br>
+    🛠️ <b>Herramientas:</b> modo carro, simulacro de examen, repaso relámpago, artículos clave, banco de casos del INDECOPI y glosario.<br>
+    ⚠️ App <b>formativa</b>: el contenido sigue el material del curso (temas para el examen final). La numeración de artículos y resoluciones es la del material; <b>verificar la norma vigente</b> y el estado procesal de cada caso antes de citarlos en un escrito. No reemplaza asesoría legal. Fecha de corte: 2026-10.<br>
+    Libre Competencia PRO v1.0 · Se protege el proceso, no al rival.
+  </div>
+
+  <script src="assets/catalog.js"></script>
+  <script src="assets/engine.js"></script>
+  <script>
+    (function () {
+      var TOOLS = [
+        { h: 'carro.html', t: '🚗 Modo carro' },
+        { h: 'simulacro.html', t: '🎯 Simulacro' },
+        { h: 'fichas.html', t: '🃏 Repaso relámpago' },
+        { h: 'articulos.html', t: '🔢 Artículos clave' },
+        { h: 'casos.html', t: '⚖️ Casos INDECOPI' },
+        { h: 'glosario.html', t: '📖 Glosario' }
+      ];
+      var tb = document.getElementById('tools');
+      TOOLS.forEach(function (x) { var a = document.createElement('a'); a.href = x.h; a.textContent = x.t; tb.appendChild(a); });
+
+      var total = 0;
+      CATALOG.forEach(function (a) { total += a.lessons.length; });
+      document.getElementById('chip-count').textContent = '📚 ' + total + ' lecciones';
+
+      var read = Store.get('read', {}), heard = Store.get('heard', {});
+      var seen = 0;
+      CATALOG.forEach(function (a) { a.lessons.forEach(function (l) { if (read[l.id] || heard[l.id]) seen++; }); });
+      var pc = total ? Math.round(seen / total * 100) : 0;
+      document.getElementById('pfill').style.width = pc + '%';
+      document.getElementById('ptxt').textContent = 'Tu progreso · ' + seen + ' de ' + total + ' lecciones leídas o escuchadas (' + pc + '%)';
+
+      var car = Store.get('car', null);
+      if (car && car.titulo) {
+        document.getElementById('car-t').textContent = 'Modo carro: continuar';
+        document.getElementById('car-d').textContent = 'Te quedaste en «' + car.titulo + '». Toca para seguir escuchando.';
+      }
+
+      var mods = document.getElementById('mods');
+      MODULES.forEach(function (m) {
+        var n = 0;
+        CATALOG.forEach(function (a) { if (a.mod === m.mod) n += a.lessons.length; });
+        var a = document.createElement('a');
+        a.className = 'mod'; a.href = '#mod-' + m.mod;
+        a.innerHTML = '<b>' + m.icon + ' ' + m.t + '</b><span>' + m.d + ' · ' + n + ' lecciones</span>';
+        mods.appendChild(a);
+      });
+
+      var home = document.getElementById('home');
+      var lastMod = 0;
+      CATALOG.forEach(function (a, ai) {
+        if (a.mod !== lastMod) {
+          lastMod = a.mod;
+          var m = MODULES.filter(function (x) { return x.mod === a.mod; })[0];
+          var mt = document.createElement('div');
+          mt.className = 'modtitle'; mt.id = 'mod-' + a.mod;
+          mt.textContent = m.icon + ' Módulo ' + m.mod + ' · ' + m.t;
+          home.appendChild(mt);
+        }
+        var sec = document.createElement('div');
+        sec.className = 'section'; sec.id = 'area-' + ai;
+        sec.innerHTML = '<div class="t">' + a.icon + ' ' + a.area + '</div><div class="sdesc">' + a.desc + '</div>';
+        home.appendChild(sec);
+        var grid = document.createElement('div'); grid.className = 'grid';
+        a.lessons.forEach(function (l) {
+          var card = document.createElement('a');
+          card.className = 'card'; card.href = 'lesson.html?l=' + l.id;
+          card.style.borderLeftColor = 'var(--' + a.acc + ')';
+          var badge = read[l.id] ? '<span class="done">✓ leída</span>' : (heard[l.id] ? '<span class="done">🎧 escuchada</span>' : '');
+          card.innerHTML = '<div class="ico">' + l.icon + '</div>' + badge +
+            '<div class="ct">' + l.t + '</div><div class="cd">' + l.d + '</div><div class="go">Aprender →</div>';
+          grid.appendChild(card);
+        });
+        home.appendChild(grid);
+      });
+
+      var q = document.getElementById('q');
+      q.addEventListener('input', function () {
+        var s = q.value.toLowerCase().trim();
+        document.querySelectorAll('a.card').forEach(function (c) { c.style.display = (!s || c.textContent.toLowerCase().indexOf(s) >= 0) ? '' : 'none'; });
+        document.querySelectorAll('.section').forEach(function (sec) {
+          var grid = sec.nextElementSibling;
+          var any = [].some.call(grid.querySelectorAll('a.card'), function (c) { return c.style.display !== 'none'; });
+          sec.style.display = any ? '' : 'none'; grid.style.display = any ? '' : 'none';
+        });
+        document.querySelectorAll('.modtitle').forEach(function (mt) { mt.style.display = s ? 'none' : ''; });
+      });
+    })();
+  </script>
+</body>
+</html>

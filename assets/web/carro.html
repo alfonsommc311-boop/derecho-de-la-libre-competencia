@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Modo carro · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">🚗 Modo carro</span></div>
+<div class="lesson-wrap">
+  <div class="car-now">
+    <div class="car-prog" id="prog">Cargando el curso…</div>
+    <div class="car-area" id="area"></div>
+    <div class="car-title" id="title">—</div>
+    <div class="car-part" id="part"></div>
+    <div class="car-bar"><div id="bar"></div></div>
+  </div>
+  <div class="car-ctrl">
+    <button type="button" class="cbtn" id="bPrevL" aria-label="Lección anterior">⏮<small>Lección</small></button>
+    <button type="button" class="cbtn" id="bRep" aria-label="Repetir parte">⟲<small>Repetir</small></button>
+    <button type="button" class="cbtn play" id="bPlay" aria-label="Escuchar o pausar">▶<small>Escuchar</small></button>
+    <button type="button" class="cbtn" id="bNextP" aria-label="Parte siguiente">⏩<small>Parte</small></button>
+    <button type="button" class="cbtn" id="bNextL" aria-label="Lección siguiente">⏭<small>Lección</small></button>
+  </div>
+
+  <div class="tpanel">
+    <div class="lbl" style="margin-top:0">Qué escuchar</div>
+    <select class="sel" id="scope"></select>
+    <div class="lbl">Formato</div>
+    <div class="pills" id="fmt"></div>
+    <div class="hint" id="fmtHelp"></div>
+    <div class="lbl">Pausa para pensar antes de cada respuesta</div>
+    <div class="pills" id="pausa"></div>
+    <div class="lbl">Velocidad de la voz</div>
+    <div class="speed"><span>🐢</span><input type="range" id="rate" min="0.2" max="1.0" step="0.05"><span>🐇</span></div>
+  </div>
+
+  <div class="tpanel">
+    <div class="toggle"><span>🌎 Voz latina <small class="hint">(apágalo para voz de España)</small></span><span class="sw" id="swLang" role="switch"></span></div>
+    <div class="toggle"><span>🔆 Pantalla encendida mientras escucho <small class="hint">(recomendado: así el audio no se corta)</small></span><span class="sw" id="swAwake" role="switch"></span></div>
+    <div class="toggle"><span>🔁 Al terminar, volver a empezar</span><span class="sw" id="swLoop" role="switch"></span></div>
+  </div>
+
+  <div class="warnbox">🚦 <b>Primero la pista.</b> Elige y toca ▶ antes de arrancar; luego no necesitas mirar el celular. Conéctalo al Bluetooth o al cable del carro. La voz sigue con la pantalla apagada; si tu celular la corta, activa <b>Pantalla encendida</b> y quita el ahorro de batería para esta app. La app recuerda dónde te quedaste.</div>
+
+  <div class="block-title">📋 Lista de reproducción</div>
+  <div class="tpanel queue" id="queue"><div class="empty">Cargando…</div></div>
+</div>
+
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/all.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var LET = 'ABCDE';
+  var FMTS = [
+    { k: 'full', t: '📖 Completa', d: 'Cada lección entera: introducción, explicación, puntos clave y preguntas de repaso con pausa para pensar.' },
+    { k: 'expl', t: '🎧 Solo explicación', d: 'La lección de corrido, sin preguntas: ideal para la primera vuelta.' },
+    { k: 'claves', t: '🎯 Puntos clave', d: 'Solo las ideas que se preguntan: repaso rápido de todo el temario.' },
+    { k: 'fichas', t: '🃏 Preguntas', d: 'Pregunta, pausa para que respondas en voz alta, y la respuesta.' },
+    { k: 'oral', t: '🧪 Examen oral', d: 'Las preguntas del quiz con sus opciones; piensa la letra y escucha la correcta con su explicación.' }
+  ];
+  var PAUSAS = [3000, 5000, 8000];
+
+  var cfg = Store.get('carcfg', { scope: 'all', fmt: 'full', pausa: 5000, loop: false });
+  var ALLL = [], lessons = [], items = [], starts = [], cur = 0, playing = false;
+  var heard = Store.get('heard', {});
+
+  function scopes() {
+    var out = [{ v: 'all', t: '📚 Todo el curso', f: function () { return true; } }];
+    MODULES.forEach(function (m) {
+      out.push({ v: 'm' + m.mod, t: m.icon + ' Módulo ' + m.mod + ' · ' + m.t, f: function (a) { return a.mod === m.mod; } });
+    });
+    CATALOG.forEach(function (a, ai) {
+      out.push({ v: 'a' + ai, t: '   ' + a.icon + ' ' + a.area, f: function (x) { return x === a; }, area: true });
+    });
+    return out;
+  }
+  var SCOPES = scopes();
+  function scopeObj(v) { for (var i = 0; i < SCOPES.length; i++) if (SCOPES[i].v === v) return SCOPES[i]; return SCOPES[0]; }
+
+  function opciones(q) { return q.opts.map(function (o, k) { return 'Opción ' + LET.charAt(k) + ': ' + sinPunto(toSpeech(o)); }).join('. ') + '.'; }
+
+  // Construye el guion de toda la selección. items[i] = {text, pause, L, lbl}
+  function build() {
+    var s = scopeObj(cfg.scope);
+    lessons = ALLL.filter(function (L) { var a = CATALOG.filter(function (x) { return x.area === L._area; })[0]; return s.f(a); });
+    items = []; starts = [];
+    var m = lessons.length, lastArea = '';
+    lessons.forEach(function (L, n) {
+      starts.push(items.length);
+      var cab = 'Lección ' + (n + 1) + ' de ' + m + '. ';
+      if (L._area !== lastArea) { cab = 'Área: ' + L._area + '. ' + cab; lastArea = L._area; }
+      var head = { text: cab + sinPunto(L.title) + '.' + (cfg.fmt === 'full' || cfg.fmt === 'expl' ? ' ' + (L.subtitle || '') : ''), pause: 500, L: n, lbl: 'Presentación' };
+      items.push(head);
+      var parts = [];
+      if (cfg.fmt === 'full' || cfg.fmt === 'expl') {
+        parts = partesLeccion(L, { preguntas: cfg.fmt === 'full', pausa: cfg.pausa });
+      } else if (cfg.fmt === 'claves') {
+        parts = partesLeccion(L, { soloClaves: true });
+      } else if (cfg.fmt === 'fichas') {
+        (L.flashcards || []).forEach(function (c, i) {
+          parts.push({ text: 'Pregunta ' + (i + 1) + '. ' + toSpeech(c.q), pause: cfg.pausa, k: 'fq', i: i });
+          parts.push({ text: 'Respuesta. ' + toSpeech(c.a), pause: 800, k: 'fa', i: i });
+        });
+      } else if (cfg.fmt === 'oral') {
+        (L.quiz || []).forEach(function (q, i) {
+          parts.push({ text: 'Pregunta ' + (i + 1) + '. ' + toSpeech(q.q) + ' ' + opciones(q), pause: cfg.pausa + 2000, k: 'oq', i: i });
+          parts.push({ text: 'La respuesta correcta es la ' + LET.charAt(q.correct) + ': ' + sinPunto(toSpeech(q.opts[q.correct])) + '. ' + toSpeech(q.why || ''), pause: 900, k: 'oa', i: i });
+        });
+      }
+      parts.forEach(function (p) {
+        var lbl = p.k === 'intro' ? 'Introducción' : p.k === 'sec' ? (L.sections[p.i] || {}).h : p.k === 'kp' ? 'Puntos clave' :
+          p.k === 'fq0' ? 'Preguntas de repaso' : (p.k === 'fq' || p.k === 'oq') ? 'Pregunta ' + (p.i + 1) : (p.k === 'fa' || p.k === 'oa') ? 'Respuesta ' + (p.i + 1) : '';
+        items.push({ text: p.text, pause: p.pause || 0, L: n, lbl: lbl });
+      });
+    });
+    if (items.length) items.push({ text: 'Terminaste: ' + s.t.replace(/^\W+/, '') + '. Buen trabajo. Repite cuando quieras o cambia de formato para repasar de otra manera.', pause: 0, L: m - 1, lbl: 'Fin' });
+  }
+
+  function key() { return cfg.scope + '|' + cfg.fmt + '|' + items.length; }
+  function save() {
+    var L = lessons[(items[cur] || {}).L];
+    Store.set('car', { key: key(), idx: cur, titulo: L ? L.title : '' });
+  }
+
+  function render() {
+    var it = items[cur];
+    $('bPlay').innerHTML = playing ? '⏸<small>Pausa</small>' : '▶<small>' + (cur > 0 ? 'Seguir' : 'Escuchar') + '</small>';
+    if (!it) {
+      $('prog').textContent = lessons.length ? 'Listo para escuchar' : 'No se encontraron lecciones';
+      $('title').textContent = '—'; $('area').textContent = ''; $('part').textContent = ''; return;
+    }
+    var L = lessons[it.L];
+    var a = starts[it.L], b = it.L + 1 < starts.length ? starts[it.L + 1] : items.length;
+    $('prog').textContent = 'Lección ' + (it.L + 1) + ' de ' + lessons.length + ' · parte ' + (cur - a + 1) + ' de ' + (b - a);
+    $('area').textContent = (L._areaIcon || '') + ' ' + L._area;
+    $('title').textContent = (L.icon ? L.icon + ' ' : '') + L.title;
+    $('part').innerHTML = '<b>' + (it.lbl || '') + '</b>' + (it.lbl ? ' — ' : '') + it.text.slice(0, 240) + (it.text.length > 240 ? '…' : '');
+    $('bar').style.width = Math.round((cur + 1) / items.length * 100) + '%';
+    [].forEach.call(document.querySelectorAll('#queue a'), function (q, n) {
+      q.classList.toggle('cur', n === it.L);
+      var ok = q.querySelector('.ok');
+      ok.textContent = heard[lessons[n].id] ? '🎧 ✓' : '';
+    });
+  }
+
+  function renderQueue() {
+    var q = $('queue'); q.innerHTML = '';
+    if (!lessons.length) { q.innerHTML = '<div class="empty">No hay lecciones en esta selección.</div>'; return; }
+    lessons.forEach(function (L, n) {
+      var a = document.createElement('a'); a.href = '#';
+      a.innerHTML = '<span class="n">' + (n + 1) + '</span><span>' + (L.icon || '') + ' ' + L.title + '</span><span class="ok"></span>';
+      a.onclick = function (e) { e.preventDefault(); play(starts[n]); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+      q.appendChild(a);
+    });
+  }
+
+  function markHeard(k) {
+    var it = items[k];
+    if (!it) return;
+    var next = items[k + 1];
+    if (!next || next.L !== it.L) {
+      var L = lessons[it.L];
+      if (L && !heard[L.id]) { heard[L.id] = true; Store.set('heard', heard); }
+    }
+  }
+
+  function play(i) {
+    if (!items.length) return;
+    Speak.stop(); // cierra la lista anterior (su onStop) antes de marcar la nueva como activa
+    cur = Math.max(0, Math.min(items.length - 1, i));
+    playing = true; render(); save();
+    Speak.list(items, {
+      start: cur,
+      onAt: function (k) { cur = k; markHeard(k); render(); save(); },
+      onEnd: function () {
+        playing = false;
+        if (cfg.loop) { play(0); return; }
+        render();
+      },
+      onStop: function () { playing = false; render(); }
+    });
+  }
+  function pause() { Speak.stop(); playing = false; render(); }
+
+  $('bPlay').onclick = function () { if (playing) pause(); else play(cur); };
+  $('bRep').onclick = function () { play(cur); };
+  $('bNextP').onclick = function () { play(cur + 1); };
+  $('bNextL').onclick = function () { var L = (items[cur] || {}).L || 0; if (L + 1 < starts.length) play(starts[L + 1]); };
+  $('bPrevL').onclick = function () {
+    var L = (items[cur] || {}).L || 0;
+    play(cur - starts[L] > 2 || L === 0 ? starts[L] : starts[L - 1]);
+  };
+
+  // --- Controles de configuración ---
+  var sel = $('scope');
+  var g1 = document.createElement('optgroup'); g1.label = 'Curso y módulos';
+  var g2 = document.createElement('optgroup'); g2.label = 'Por área';
+  SCOPES.forEach(function (s) {
+    var n = 0;
+    CATALOG.forEach(function (a) { if (s.f(a)) n += a.lessons.length; });
+    var o = document.createElement('option'); o.value = s.v; o.textContent = s.t.trim() + ' (' + n + ')';
+    (s.area ? g2 : g1).appendChild(o);
+  });
+  sel.appendChild(g1); sel.appendChild(g2);
+  sel.value = cfg.scope;
+  sel.onchange = function () { cfg.scope = sel.value; Store.set('carcfg', cfg); rebuild(0); };
+
+  function pills(box, list, get, set) {
+    box.innerHTML = '';
+    list.forEach(function (x) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'pill' + (get() === x.k ? ' on' : ''); b.textContent = x.t;
+      b.onclick = function () { set(x.k); pills(box, list, get, set); };
+      box.appendChild(b);
+    });
+  }
+  function fmtHelp() { $('fmtHelp').textContent = FMTS.filter(function (f) { return f.k === cfg.fmt; })[0].d; }
+  pills($('fmt'), FMTS, function () { return cfg.fmt; }, function (k) { cfg.fmt = k; Store.set('carcfg', cfg); fmtHelp(); rebuild(-1); });
+  fmtHelp();
+  pills($('pausa'), PAUSAS.map(function (p) { return { k: p, t: (p / 1000) + ' segundos' }; }),
+    function () { return cfg.pausa; }, function (k) { cfg.pausa = k; Store.set('carcfg', cfg); rebuild(cur); });
+
+  var rate = $('rate'); rate.value = Speak.rate;
+  rate.oninput = function () { Speak.setRate(parseFloat(rate.value)); };
+
+  function sw(el, on, cb) {
+    el.classList.toggle('on', !!on);
+    el.onclick = function () { on = !on; el.classList.toggle('on', on); cb(on); };
+  }
+  sw($('swLang'), Speak.lang !== 'es-ES', function (on) { Speak.setLang(on ? 'es-US' : 'es-ES'); });
+  var awake = Store.get('awake', true); // por defecto encendida: lo más fiable en el carro
+  Speak.awake(awake);
+  sw($('swAwake'), awake, function (on) { Store.set('awake', on); Speak.awake(on); });
+  sw($('swLoop'), cfg.loop, function (on) { cfg.loop = on; Store.set('carcfg', cfg); });
+
+  // Al cambiar formato o selección se rearma el guion; se intenta conservar la lección actual.
+  function rebuild(pos) {
+    var wasPlaying = playing, Lcur = (items[cur] || {}).L, idCur = lessons[Lcur] ? lessons[Lcur].id : null;
+    if (playing) Speak.stop();
+    playing = false;
+    build(); renderQueue();
+    if (pos === -1) {
+      cur = 0;
+      lessons.forEach(function (L, n) { if (L.id === idCur) cur = starts[n]; });
+    } else cur = Math.max(0, Math.min(items.length - 1, pos));
+    render(); save();
+    if (wasPlaying) play(cur);
+  }
+
+  window.addEventListener('pagehide', function () { try { Speak.stop(); Speak.awake(false); } catch (e) {} });
+
+  loadAll(function (ALL) {
+    ALLL = ALL;
+    var desde = (new URLSearchParams(location.search).get('desde') || '').replace(/[^a-z0-9\-]/gi, '');
+    if (desde) {
+      var inScope = false, s = scopeObj(cfg.scope);
+      CATALOG.forEach(function (a) { a.lessons.forEach(function (l) { if (l.id === desde && s.f(a)) inScope = true; }); });
+      if (!inScope) { cfg.scope = 'all'; sel.value = 'all'; Store.set('carcfg', cfg); }
+    }
+    build(); renderQueue();
+    var saved = Store.get('car', null);
+    cur = 0;
+    if (desde) lessons.forEach(function (L, n) { if (L.id === desde) cur = starts[n]; });
+    else if (saved && saved.key === key() && saved.idx < items.length) cur = saved.idx;
+    render();
+  });
+})();
+</script>
+</body></html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Repaso relámpago · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">🃏 Repaso relámpago</span></div>
+<div class="lesson-wrap"><div id="lesson"><div class="empty">Cargando fichas…</div></div></div>
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/all.js"></script>
+<script>
+window.addEventListener('pagehide', function () { try { Speak.stop(); } catch (e) {} });
+function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+var root = document.getElementById('lesson');
+loadAll(function (ALL) {
+  var mod = Store.get('fichmod', 0), cards = [], i = 0;
+  function armar() {
+    cards = [];
+    ALL.forEach(function (L) { if (!mod || L._mod === mod) (L.flashcards || []).forEach(function (f) { cards.push({ f: f, tag: L.title, id: L.id }); }); });
+    cards = shuf(cards); i = 0;
+  }
+  function show() {
+    Speak.stop();
+    root.innerHTML = '';
+    var pm = el('div', 'pills');
+    [{ k: 0, t: '📚 Todo' }].concat(MODULES.map(function (m) { return { k: m.mod, t: m.icon + ' ' + m.t }; })).forEach(function (m) {
+      var b = el('button', 'pill' + (mod === m.k ? ' on' : ''), m.t); b.type = 'button';
+      b.onclick = function () { mod = m.k; Store.set('fichmod', mod); armar(); show(); };
+      pm.appendChild(b);
+    });
+    root.appendChild(pm);
+    if (!cards.length) { root.appendChild(el('div', 'empty', 'No hay fichas en este tema.')); return; }
+    var c = cards[i];
+    root.appendChild(el('div', 'area-badge', 'Ficha ' + (i + 1) + ' de ' + cards.length + ' · ' + c.tag));
+    var auto = Store.get('vozauto', false);
+    var bar = el('div', 'audiobar');
+    var vz = el('button', 'btn ghost sm', auto ? '🔊 Voz automática: sí' : '🔇 Voz automática: no'); vz.type = 'button';
+    vz.onclick = function () { auto = !auto; Store.set('vozauto', auto); vz.textContent = auto ? '🔊 Voz automática: sí' : '🔇 Voz automática: no'; if (!auto) Speak.stop(); else Speak.list([toSpeech(c.f.q)]); };
+    bar.appendChild(vz);
+    var lk = el('a', 'btn ghost sm', '📖 Ver lección'); lk.href = 'lesson.html?l=' + c.id; bar.appendChild(lk);
+    root.appendChild(bar);
+    var w = el('div', 'flashwrap'); var card = el('div', 'flash');
+    card.innerHTML = '<div class="flash-inner"><div class="flash-face flash-q"><span class="flash-tag">PREGUNTA</span><div>' + c.f.q + '</div><span class="flash-hint">toca para ver la respuesta</span></div><div class="flash-face flash-a"><span class="flash-tag">RESPUESTA</span><div>' + c.f.a + '</div></div></div>';
+    card.onclick = function (e) { if (e.target.closest('.flash-audio')) return; card.classList.toggle('flip'); if (card.classList.contains('flip') && Store.get('vozauto', false)) Speak.list([toSpeech(c.f.a)]); };
+    var fab = el('button', 'flash-audio', '🔊'); fab.type = 'button'; fab.dataset.lbl = '🔊';
+    fab.onclick = function (ev) { ev.stopPropagation(); Speak.say(toSpeech(c.f.q) + ' Respuesta: ' + toSpeech(c.f.a), fab); };
+    card.appendChild(fab); w.appendChild(card); root.appendChild(w);
+    var nav = el('div', 'lesson-nav');
+    var pv = el('a', 'nav-btn prev', '← Anterior'); pv.href = '#'; pv.onclick = function (e) { e.preventDefault(); i = (i - 1 + cards.length) % cards.length; show(); };
+    var nx = el('a', 'nav-btn next', 'Siguiente →'); nx.href = '#'; nx.onclick = function (e) { e.preventDefault(); i = (i + 1) % cards.length; show(); };
+    nav.appendChild(pv); nav.appendChild(nx); root.appendChild(nav);
+    if (auto) Speak.list([toSpeech(c.f.q)]);
+  }
+  armar(); show();
+});
+</script></body></html>

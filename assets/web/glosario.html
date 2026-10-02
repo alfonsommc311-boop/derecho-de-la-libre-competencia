@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Glosario · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">📖 Glosario</span></div>
+<div class="lesson-wrap">
+  <h1 class="lesson-title">📖 Glosario</h1>
+  <div class="lesson-sub">Los términos del curso en una frase, de la A a la Z.</div>
+  <div class="search"><input id="q" type="search" placeholder="🔎 Buscar término…"></div>
+  <div class="audiobar"><button type="button" class="btn primary" id="all" data-lbl="▶ Escuchar los visibles">▶ Escuchar los visibles</button>
+    <div class="speed"><span>🐢</span><input type="range" id="rate" min="0.2" max="1.0" step="0.05"><span>🐇</span></div></div>
+  <div id="list"></div>
+</div>
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/ref.js"></script>
+<script>
+(function () {
+  window.addEventListener('pagehide', function () { try { Speak.stop(); } catch (e) {} });
+  var rate = document.getElementById('rate'); rate.value = Speak.rate; rate.oninput = function () { Speak.setRate(parseFloat(rate.value)); };
+  var list = document.getElementById('list'), rows = [];
+  GLOSARIO.slice().sort(function (a, b) { return a[0].localeCompare(b[0], 'es'); }).forEach(function (g) {
+    var it = document.createElement('div'); it.className = 'item';
+    it.innerHTML = '<div class="it"><span>' + g[0] + '</span></div><div class="im">' + g[1] + '</div>';
+    var txt = g[0] + '. ' + g[1];
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'mini-audio'; b.textContent = '🔊'; b.dataset.lbl = '🔊';
+    b.onclick = function () { Speak.say(txt, b); };
+    it.querySelector('.it').appendChild(b);
+    list.appendChild(it); rows.push({ el: it, text: txt, pause: 400 });
+  });
+  var q = document.getElementById('q');
+  q.oninput = function () {
+    var s = q.value.toLowerCase().trim();
+    rows.forEach(function (r) { r.el.style.display = !s || r.text.toLowerCase().indexOf(s) >= 0 ? '' : 'none'; });
+  };
+  var all = document.getElementById('all');
+  all.onclick = function () {
+    var vis = rows.filter(function (r) { return r.el.style.display !== 'none'; });
+    Speak.playQueue(vis, function (i, r) {
+      rows.forEach(function (x) { x.el.classList.toggle('speaking', r && x === r); });
+      if (r) r.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, all);
+  };
+})();
+</script></body></html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Simulacro · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">🎯 Simulacro de examen</span></div>
+<div class="lesson-wrap"><div id="lesson"><div class="empty">Cargando preguntas…</div></div></div>
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/all.js"></script>
+<script>
+window.addEventListener('pagehide', function () { try { Speak.stop(); } catch (e) {} });
+function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+var LET = 'ABCDE';
+var root = document.getElementById('lesson');
+function opciones(q) { return q.opts.map(function (o, k) { return 'Opción ' + LET.charAt(k) + ', ' + sinPunto(toSpeech(o)); }).join('. ') + '.'; }
+
+loadAll(function (ALL) {
+  var cfg = Store.get('simcfg', { mod: 0, n: 20 });
+  function inicio() {
+    Speak.stop();
+    root.innerHTML = '';
+    root.appendChild(el('h1', 'lesson-title', '🎯 Simulacro de examen'));
+    root.appendChild(el('div', 'lesson-sub', 'Preguntas al azar del quiz de todas las lecciones. Al final verás tu puntaje y qué temas repasar. Mejor puntaje: ' + (Store.get('best', null) === null ? '—' : Store.get('best') + '%')));
+    var p = el('div', 'tpanel');
+    p.appendChild(el('div', 'lbl', 'Tema'));
+    var pm = el('div', 'pills'); p.appendChild(pm);
+    var mods = [{ k: 0, t: '📚 Todo' }].concat(MODULES.map(function (m) { return { k: m.mod, t: m.icon + ' ' + m.t }; }));
+    function drawMods() { pm.innerHTML = ''; mods.forEach(function (m) { var b = el('button', 'pill' + (cfg.mod === m.k ? ' on' : ''), m.t); b.type = 'button'; b.onclick = function () { cfg.mod = m.k; drawMods(); }; pm.appendChild(b); }); }
+    drawMods();
+    p.appendChild(el('div', 'lbl', 'Número de preguntas'));
+    var pn = el('div', 'pills'); p.appendChild(pn);
+    function drawN() { pn.innerHTML = ''; [10, 20, 30].forEach(function (n) { var b = el('button', 'pill' + (cfg.n === n ? ' on' : ''), n + ' preguntas'); b.type = 'button'; b.onclick = function () { cfg.n = n; drawN(); }; pn.appendChild(b); }); }
+    drawN();
+    var go = el('button', 'btn primary', '▶ Empezar'); go.type = 'button'; go.style.marginTop = '12px';
+    go.onclick = function () { Store.set('simcfg', cfg); correr(); };
+    p.appendChild(go);
+    root.appendChild(p);
+  }
+
+  function correr() {
+    var pool = [];
+    ALL.forEach(function (L) { if (!cfg.mod || L._mod === cfg.mod) (L.quiz || []).forEach(function (q) { pool.push({ q: q, tag: L.title, id: L.id }); }); });
+    var qs = shuf(pool).slice(0, cfg.n), idx = 0, right = 0, wrong = {};
+    function step() {
+      if (idx >= qs.length) return fin();
+      Speak.stop();
+      var it = qs[idx];
+      root.innerHTML = '';
+      root.appendChild(el('div', 'area-badge', 'Pregunta ' + (idx + 1) + ' de ' + qs.length + ' · aciertos ' + right));
+      var auto = Store.get('vozauto', false);
+      var bar = el('div', 'audiobar');
+      var vz = el('button', 'btn ghost sm', auto ? '🔊 Voz automática: sí' : '🔇 Voz automática: no'); vz.type = 'button';
+      vz.onclick = function () { auto = !auto; Store.set('vozauto', auto); vz.textContent = auto ? '🔊 Voz automática: sí' : '🔇 Voz automática: no'; if (!auto) Speak.stop(); else leer(); };
+      bar.appendChild(vz); root.appendChild(bar);
+      var qb = el('div', 'qitem'); var qh = el('div', 'q-head');
+      qh.appendChild(el('div', 'q-text', it.q.q));
+      var qa = el('button', 'mini-audio', '🔊'); qa.type = 'button'; qa.dataset.lbl = '🔊';
+      function leer() { Speak.list([toSpeech(it.q.q) + ' ' + opciones(it.q)], { btn: qa }); }
+      qa.onclick = function () { Speak.say(toSpeech(it.q.q) + ' ' + opciones(it.q), qa); };
+      qh.appendChild(qa); qb.appendChild(qh);
+      qb.appendChild(el('div', 'hint', 'Tema: ' + it.tag));
+      var opts = el('div', 'opts'), locked = false;
+      it.q.opts.forEach(function (o, k) {
+        var b = el('button', 'opt', LET.charAt(k) + '. ' + o); b.type = 'button';
+        b.onclick = function () {
+          if (locked) return; locked = true;
+          var ok = k === it.q.correct;
+          if (ok) { right++; b.classList.add('ok'); } else { b.classList.add('bad'); opts.querySelectorAll('.opt')[it.q.correct].classList.add('ok'); wrong[it.id] = it.tag; }
+          var txt = (ok ? 'Correcto. ' : 'Incorrecto. La respuesta es la ' + LET.charAt(it.q.correct) + '. ') + (it.q.why || '');
+          qb.appendChild(el('div', 'why ' + (ok ? 'why-ok' : 'why-bad'), (ok ? '✔ ' : '✘ ') + txt));
+          if (Store.get('vozauto', false)) Speak.list([toSpeech(txt)]);
+          var nx = el('button', 'btn primary', idx + 1 < qs.length ? 'Siguiente →' : 'Ver resultado'); nx.type = 'button'; nx.style.marginTop = '12px';
+          nx.onclick = function () { idx++; step(); };
+          qb.appendChild(nx);
+        };
+        opts.appendChild(b);
+      });
+      qb.appendChild(opts); root.appendChild(qb);
+      window.scrollTo(0, 0);
+      if (auto) leer();
+    }
+    function fin() {
+      Speak.stop();
+      var pct = qs.length ? Math.round(100 * right / qs.length) : 0, best = Store.get('best', null);
+      if (best === null || pct > best) Store.set('best', pct);
+      root.innerHTML = '';
+      root.appendChild(el('h1', 'lesson-title', '📊 Resultado: ' + pct + '%'));
+      root.appendChild(el('div', 'lesson-sub', right + ' de ' + qs.length + ' correctas · mejor puntaje: ' + Store.get('best', pct) + '%'));
+      var ids = Object.keys(wrong);
+      if (ids.length) {
+        root.appendChild(el('div', 'block-title', '📌 Repasa estos temas'));
+        var g = el('div', 'grid');
+        ids.forEach(function (id) { var a = el('a', 'card', '<div class="ct">' + wrong[id] + '</div><div class="go">Repasar →</div>'); a.href = 'lesson.html?l=' + id; g.appendChild(a); });
+        root.appendChild(g);
+      } else root.appendChild(el('div', 'intro', 'Sin fallos. Estás listo para el examen.'));
+      var nav = el('div', 'lesson-nav');
+      var again = el('a', 'nav-btn next', 'Otro simulacro →'); again.href = '#';
+      again.onclick = function (e) { e.preventDefault(); inicio(); };
+      nav.appendChild(el('span')); nav.appendChild(again); root.appendChild(nav);
+    }
+    step();
+  }
+  inicio();
+});
+</script></body></html>

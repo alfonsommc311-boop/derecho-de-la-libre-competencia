@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Casos INDECOPI · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">⚖️ Casos INDECOPI</span></div>
+<div class="lesson-wrap">
+  <h1 class="lesson-title">⚖️ Banco de casos</h1>
+  <div class="lesson-sub">Los casos del material con su resolución, los hechos y el criterio que se pregunta. Las cifras y resoluciones reflejan el estado del expediente según el material: confirmar el estado procesal vigente antes de citarlas en un escrito.</div>
+  <div class="audiobar"><button type="button" class="btn primary" id="all" data-lbl="▶ Escuchar todos">▶ Escuchar todos</button>
+    <div class="speed"><span>🐢</span><input type="range" id="rate" min="0.2" max="1.0" step="0.05"><span>🐇</span></div></div>
+  <div id="list"></div>
+</div>
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/ref.js"></script>
+<script>
+(function () {
+  window.addEventListener('pagehide', function () { try { Speak.stop(); } catch (e) {} });
+  var rate = document.getElementById('rate'); rate.value = Speak.rate; rate.oninput = function () { Speak.setRate(parseFloat(rate.value)); };
+  var list = document.getElementById('list'), els = [], queue = [], lastMod = 0;
+  CASOS.forEach(function (c, n) {
+    if (c.mod !== lastMod) {
+      lastMod = c.mod;
+      var m = MODULES.filter(function (x) { return x.mod === c.mod; })[0];
+      var h = document.createElement('div'); h.className = 'block-title'; h.textContent = m.icon + ' ' + m.t; list.appendChild(h);
+    }
+    var it = document.createElement('div'); it.className = 'item';
+    var txt = 'Caso ' + (n + 1) + '. ' + c.t + '. ' + c.tipo + '. ' + c.res + '. Hechos: ' + c.h + ' Criterio: ' + c.c;
+    it.innerHTML = '<div class="it"><span>' + c.t + '</span></div>' +
+      '<div class="im"><span class="tag">' + c.tipo + '</span></div>' +
+      '<div class="im">📄 <b>' + c.res + '</b></div>' +
+      '<div class="im"><b>Hechos:</b> ' + c.h + '</div>' +
+      '<div class="im"><b>Criterio:</b> <span class="hl">' + c.c + '</span></div>' +
+      '<div class="im"><a class="hl" href="lesson.html?l=' + c.id + '">📖 Ver la lección →</a></div>';
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'mini-audio'; b.textContent = '🔊'; b.dataset.lbl = '🔊';
+    b.onclick = function () { Speak.say(txt, b); };
+    it.querySelector('.it').appendChild(b);
+    list.appendChild(it); els.push(it); queue.push({ text: txt, el: it, pause: 600 });
+  });
+  var all = document.getElementById('all');
+  all.onclick = function () {
+    Speak.playQueue(queue, function (i, q) {
+      els.forEach(function (e) { e.classList.toggle('speaking', q && e === q.el); });
+      if (q) q.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, all);
+  };
+})();
+</script></body></html>

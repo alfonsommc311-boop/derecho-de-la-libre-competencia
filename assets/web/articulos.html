@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Artículos clave · Libre Competencia PRO</title><meta name="theme-color" content="#15191c">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/styles.css"></head>
+<body>
+<div class="topbar"><a class="back" href="index.html">← Inicio</a><span class="tt">🔢 Artículos clave</span></div>
+<div class="lesson-wrap">
+  <h1 class="lesson-title">🔢 Artículos clave por norma</h1>
+  <div class="lesson-sub">Cada número que aparece en los temas del examen, con su idea en una línea. Los marcados <span class="hl">complemento</span> no están en el material: verificar la norma vigente.</div>
+  <div class="audiobar"><button type="button" class="btn primary" id="all" data-lbl="▶ Escuchar todos">▶ Escuchar todos</button>
+    <div class="speed"><span>🐢</span><input type="range" id="rate" min="0.2" max="1.0" step="0.05"><span>🐇</span></div></div>
+  <div class="pills" id="filt"></div>
+  <div id="list"></div>
+</div>
+<script src="assets/catalog.js"></script><script src="assets/engine.js"></script><script src="assets/ref.js"></script>
+<script>
+(function () {
+  window.addEventListener('pagehide', function () { try { Speak.stop(); } catch (e) {} });
+  var rate = document.getElementById('rate'); rate.value = Speak.rate; rate.oninput = function () { Speak.setRate(parseFloat(rate.value)); };
+  var mod = 0, list = document.getElementById('list'), els = [], queue = [];
+  function draw() {
+    Speak.stop(); list.innerHTML = ''; els = []; queue = [];
+    ARTICULOS.forEach(function (g) {
+      if (mod && g.mod !== mod) return;
+      var h = document.createElement('div'); h.className = 'block-title'; h.textContent = g.norma; list.appendChild(h);
+      queue.push({ text: g.norma + '.', el: h, pause: 400 }); els.push(h);
+      g.items.forEach(function (a) {
+        var it = document.createElement('div'); it.className = 'item';
+        var txt = a.n + '. ' + a.t + '. ' + a.d + (a.c ? ' Complemento: verificar la norma vigente.' : '');
+        it.innerHTML = '<div class="it"><span>' + a.n + ' · ' + a.t + '</span></div><div class="im">' + a.d + '</div>' + (a.c ? '<span class="tag c">complemento · verificar</span>' : '');
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'mini-audio'; b.textContent = '🔊'; b.dataset.lbl = '🔊';
+        b.onclick = function () { Speak.say(txt, b); };
+        it.querySelector('.it').appendChild(b);
+        list.appendChild(it); els.push(it); queue.push({ text: txt, el: it, pause: 300 });
+      });
+    });
+  }
+  var f = document.getElementById('filt');
+  function pills() {
+    f.innerHTML = '';
+    [{ k: 0, t: '📚 Todas' }].concat(MODULES.filter(function (m) { return m.mod < 5; }).map(function (m) { return { k: m.mod, t: m.icon + ' ' + m.t }; })).forEach(function (m) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'pill' + (mod === m.k ? ' on' : ''); b.textContent = m.t;
+      b.onclick = function () { mod = m.k; pills(); draw(); }; f.appendChild(b);
+    });
+  }
+  var all = document.getElementById('all');
+  all.onclick = function () {
+    Speak.playQueue(queue, function (i, q) {
+      els.forEach(function (e) { e.classList.toggle('speaking', q && e === q.el); });
+      if (q) q.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, all);
+  };
+  pills(); draw();
+})();
+</script></body></html>
