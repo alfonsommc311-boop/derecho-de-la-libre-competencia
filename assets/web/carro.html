@@ -42,6 +42,8 @@
 
   <div class="warnbox">🚦 <b>Primero la pista.</b> Elige y toca ▶ antes de arrancar; luego no necesitas mirar el celular. Conéctalo al Bluetooth o al cable del carro. La voz sigue con la pantalla apagada; si tu celular la corta, activa <b>Pantalla encendida</b> y quita el ahorro de batería para esta app. La app recuerda dónde te quedaste.</div>
 
+  <div class="warnbox" id="webnote" style="display:none"></div>
+
   <div class="block-title">📋 Lista de reproducción</div>
   <div class="tpanel queue" id="queue"><div class="empty">Cargando…</div></div>
 </div>
@@ -247,6 +249,15 @@
   }
 
   window.addEventListener('pagehide', function () { try { Speak.stop(); Speak.awake(false); } catch (e) {} });
+
+  // Versión web (navegador, PWA o archivo HTML): la voz depende del navegador y suele detenerse con la pantalla apagada.
+  setTimeout(function () {
+    if (Speak.native()) return;
+    var n = $('webnote'); n.style.display = '';
+    n.innerHTML = '🌐 <b>Versión web.</b> ' + (navigator.wakeLock
+      ? 'Deja esta pestaña abierta y la pantalla encendida: el navegador suele detener la voz si apagas la pantalla o cambias de app. Para escuchar sin mirar el celular usa la app APK.'
+      : 'Este archivo local no puede mantener la pantalla encendida. Desactiva el apagado automático de pantalla en Ajustes mientras escuchas, o usa la versión instalable por internet o la app APK.');
+  }, 800);
 
   loadAll(function (ALL) {
     ALLL = ALL;

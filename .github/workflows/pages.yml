@@ -1,0 +1,56 @@
+name: Web instalable (GitHub Pages)
+
+# Publica dist/pwa como sitio instalable (PWA). Solo corre en la rama predeterminada.
+# Requiere activar una vez: Settings → Pages → Build and deployment → Source: GitHub Actions.
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['*.md', '_brief/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.cfg.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validar lecciones
+        run: cd assets/web && node ../../scripts/validate_lessons.js
+      - name: Construir sitio
+        run: node scripts/build_html.js
+      - id: cfg
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+      - name: Aviso si Pages no está activado
+        if: steps.cfg.outcome != 'success'
+        run: |
+          echo "::warning::GitHub Pages no está activado. Actívalo en Settings > Pages > Source = GitHub Actions y vuelve a ejecutar este workflow."
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.cfg.outcome == 'success'
+        with:
+          path: dist/pwa
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

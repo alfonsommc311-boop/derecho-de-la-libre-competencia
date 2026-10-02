@@ -10,6 +10,8 @@ App formativa Android de la familia «Experto/PRO» (Flutter WebView + TTS, sin 
 - `assets/web/index.html` home · `lesson.html` + `assets/engine.js` motor · `assets/catalog.js` (MODULES y CATALOG: 13 áreas, 63 lecciones) · `lessons/*.js` una lección por archivo (`Lesson.start({...})`).
 - `carro.html` modo carro (lista de reproducción) · `simulacro.html` · `fichas.html` · `articulos.html` · `casos.html` · `glosario.html`; datos de referencia en `assets/ref.js`; `assets/all.js` carga todas las lecciones como datos.
 - `lib/main.dart`: shell Flutter. **La lista de lectura (`list`) corre en Dart**, no en la página; la página solo recibe `__ttsAt(id, i)` y `__ttsEnd(id)`. Canal `lcp/pantalla` (MainActivity.kt) mantiene la pantalla encendida.
+- **Versión HTML**: `node scripts/build_html.js` genera `dist/libre-competencia.html` (un solo archivo; enrutador por hash que reescribe `src`/`href` a blobs y `location.search`) y `dist/pwa/` (manifest + `sw.js` con precarga). No modifica `assets/web`. Íconos PWA en `scripts/pwa/` (`python3 scripts/make_pwa_icons.py`). `dist/` está en `.gitignore`. Si añades una página a `assets/web`, no uses `let/const` globales ni `location.search` fuera de los dos usos actuales sin probar el HTML único.
+- En navegador `Speak` usa `speechSynthesis` por trozos de 500 caracteres y Wake Lock (solo https/localhost); en el APK la lista corre en Dart.
 - `engine.js`: `hablar()` convierte abreviaturas («D.Leg.», «art.», «Res.», «S/») en texto pronunciable; `partesLeccion()` arma el guion hablado que usan la lección y el carro.
 
 ## Reglas de contenido
@@ -19,7 +21,7 @@ App formativa Android de la familia «Experto/PRO» (Flutter WebView + TTS, sin 
 - Herramienta formativa, no reemplaza asesoría legal.
 
 ## Validación
-`cd assets/web && node ../../scripts/validate_lessons.js` → `problemas=0 faltantes=0 huerfanos=0`. `flutter pub get && flutter analyze && flutter test`. Vista previa: `cd assets/web && python3 -m http.server 9056`.
+`cd assets/web && node ../../scripts/validate_lessons.js` → `problemas=0 faltantes=0 huerfanos=0`. `flutter pub get && flutter analyze && flutter test`. Probar el HTML: `node scripts/build_html.js` y abrir `dist/libre-competencia.html` (también por `file://`). Vista previa: `cd assets/web && python3 -m http.server 9056`.
 
 ## Compilación
-`scripts/build_apk.sh` (requiere Android SDK). En GitHub, el workflow `Build APK` compila y publica el APK en el release `apk-latest`.
+`scripts/build_apk.sh` (requiere Android SDK). En GitHub, el workflow `Build APK` compila y publica el APK y el HTML en el release `apk-latest`; `pages.yml` publica la PWA en Pages (solo rama predeterminada; requiere activar Pages con fuente GitHub Actions).

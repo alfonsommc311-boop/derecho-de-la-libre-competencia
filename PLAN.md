@@ -27,10 +27,12 @@ Lista de lectura en Dart (sigue con la pantalla apagada si el celular lo permite
 - [x] 63 lecciones validadas (0 problemas), 268 preguntas, ~8,8 h de audio.
 - [x] Modo carro, simulacro, repaso relámpago, artículos, casos y glosario.
 - [x] Ícono propio, íconos adaptativos y splash.
-- [x] Workflow Build APK → release `apk-latest`.
+- [x] Workflow Build APK → release `apk-latest` (APK + HTML).
+- [x] Versión HTML: archivo único autónomo y PWA instalable con service worker (probada por `file://` y sin conexión).
 
 ## 6. Pendiente
 - [ ] Probar en el celular: voz en español instalada, audio con pantalla apagada y con Bluetooth del carro.
 - [ ] Servicio en primer plano / controles de medios en la pantalla de bloqueo (hoy se usa «pantalla encendida»).
+- [ ] Activar GitHub Pages (Settings → Pages → Source: GitHub Actions) para publicar la PWA.
 - [ ] Firma de release (keystore).
 - [ ] Contrastar los artículos [COMPLEMENTO] y las dos rarezas del material con el profesor o la norma vigente.

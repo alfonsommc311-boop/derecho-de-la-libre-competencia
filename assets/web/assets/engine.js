@@ -84,7 +84,21 @@ var Speak = {
     Store.set('lang', this.lang);
     if (this.native()) this._send({ cmd: 'lang', lang: this.lang });
   },
-  awake: function (on) { if (this.native()) this._send({ cmd: 'awake', on: !!on }); },
+  awake: function (on) {
+    if (this.native()) { this._send({ cmd: 'awake', on: !!on }); return; }
+    // Navegador: Screen Wake Lock (solo en https o localhost; en file:// no existe)
+    var self = this;
+    self._wantAwake = !!on;
+    try {
+      if (!on) { if (self._lock) { self._lock.release(); self._lock = null; } return; }
+      if (navigator.wakeLock && !self._lock) {
+        navigator.wakeLock.request('screen').then(function (l) {
+          self._lock = l;
+          l.addEventListener('release', function () { self._lock = null; });
+        }).catch(function () {});
+      }
+    } catch (e) {}
+  },
 
   list: function (items, opts) {
     opts = opts || {};
@@ -146,18 +160,51 @@ var Speak = {
     if (cb) cb();
   },
 
-  // Respaldo del navegador (vista previa en PC): misma lógica de lista con pausas.
+  // Respaldo del navegador (PWA, HTML único y vista previa en PC): misma lista con pausas,
+  // cada frase partida en trozos cortos para que Chrome no corte la voz a medias.
+  _voz: function () {
+    try {
+      var vs = window.speechSynthesis.getVoices() || [], pref = this.lang === 'es-ES' ? ['es-ES', 'es-US', 'es-MX'] : ['es-US', 'es-MX', 'es-419', 'es-ES'];
+      for (var k = 0; k < pref.length; k++) {
+        for (var j = 0; j < vs.length; j++) if (vs[j].lang && vs[j].lang.replace('_', '-') === pref[k]) return vs[j];
+      }
+      for (var m = 0; m < vs.length; m++) if (vs[m].lang && vs[m].lang.toLowerCase().indexOf('es') === 0) return vs[m];
+    } catch (e) {}
+    return null;
+  },
+  _trozos: function (t) {
+    var out = [], rest = String(t || '').trim();
+    while (rest.length > 500) {
+      var cut = Math.max(rest.lastIndexOf('. ', 499), rest.lastIndexOf('; ', 499), rest.lastIndexOf(': ', 499));
+      if (cut < 150) cut = rest.lastIndexOf(' ', 499);
+      if (cut < 1) cut = 499;
+      out.push(rest.slice(0, cut + 1).trim());
+      rest = rest.slice(cut + 1).trim();
+    }
+    if (rest) out.push(rest);
+    return out;
+  },
   _web: function (id, i) {
     var self = this;
     if (id !== this.id) return;
-    if (!window.speechSynthesis || i >= this.items.length) { setTimeout(function () { self._end(id); }, 0); return; }
+    if (!window.speechSynthesis) {
+      if (window.__ttsFail) window.__ttsFail('Este navegador no tiene voz integrada. Abre la app en Chrome para Android.');
+      return;
+    }
+    if (i >= this.items.length) { setTimeout(function () { self._end(id); }, 0); return; }
     this._at(id, i);
-    var it = this.items[i];
-    var u = new SpeechSynthesisUtterance(it.t);
-    u.lang = this.lang; u.rate = 0.6 + this.rate * 0.9;
-    var next = function () { if (id === self.id) setTimeout(function () { self._web(id, i + 1); }, it.p || 0); };
-    u.onend = next; u.onerror = next;
-    window.speechSynthesis.speak(u);
+    var it = this.items[i], parts = this._trozos(it.t), n = 0, voice = this._voz();
+    function nextPart() {
+      if (id !== self.id) return;
+      if (n >= parts.length) { setTimeout(function () { self._web(id, i + 1); }, it.p || 0); return; }
+      var u = new SpeechSynthesisUtterance(parts[n++]);
+      u.lang = voice ? voice.lang : self.lang;
+      if (voice) u.voice = voice;
+      u.rate = 0.6 + self.rate * 0.9;
+      u.onend = nextPart; u.onerror = nextPart;
+      window.speechSynthesis.speak(u);
+    }
+    nextPart();
   }
 };
 function aviso(msg) {
@@ -171,10 +218,15 @@ function aviso(msg) {
   } catch (e) {}
 }
 if (typeof window !== 'undefined') {
-  window.__ttsFail = function () {
+  window.__ttsFail = function (msg) {
     Speak.stop();
-    aviso('🔇 El celular no encontró una voz en español. Ve a Ajustes → Administración general → Idioma → Texto a voz, instala «Voz de Google» o «Servicios de voz de Google» y descarga el español. Luego vuelve a tocar ▶.');
+    aviso('🔇 ' + (msg || 'El celular no encontró una voz en español. Ve a Ajustes → Administración general → Idioma → Texto a voz, instala «Voz de Google» o «Servicios de voz de Google» y descarga el español. Luego vuelve a tocar ▶.'));
   };
+  // El Wake Lock se pierde al ocultar la página: se vuelve a pedir al regresar.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && Speak._wantAwake) { Speak._lock = null; Speak.awake(true); }
+  });
+  if (window.speechSynthesis && window.speechSynthesis.addEventListener) window.speechSynthesis.addEventListener('voiceschanged', function () {});
   window.__ttsAt = function (id, i) { Speak._at(id, i); };
   window.__ttsEnd = function (id) { Speak._end(id); };
   Speak.rate = Store.get('rate', 0.5);

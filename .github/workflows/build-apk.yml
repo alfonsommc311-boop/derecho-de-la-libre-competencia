@@ -31,18 +31,22 @@ jobs:
       - run: flutter analyze
       - run: flutter test
       - run: flutter build apk --release
+      - name: Construir HTML (archivo único y PWA)
+        run: node scripts/build_html.js
       - uses: actions/upload-artifact@v4
         with:
-          name: libre-competencia-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-      - name: Publicar APK en Releases
+          name: libre-competencia-apk-y-html
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            dist/libre-competencia.html
+      - name: Publicar APK y HTML en Releases
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp build/app/outputs/flutter-apk/app-release.apk libre-competencia.apk
           gh release delete apk-latest --cleanup-tag --yes || true
-          gh release create apk-latest libre-competencia.apk \
+          gh release create apk-latest libre-competencia.apk dist/libre-competencia.html \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "Libre Competencia PRO (APK)" --prerelease \
-            --notes "APK de la última compilación de la rama ${GITHUB_REF_NAME}. Descárgalo desde el celular y ábrelo para instalar."
+            --title "Libre Competencia PRO (APK y HTML)" --prerelease \
+            --notes "Última compilación de la rama ${GITHUB_REF_NAME}. libre-competencia.apk: app Android (instálala y listo). libre-competencia.html: versión de un solo archivo para abrir en el navegador del celular, sin internet."
